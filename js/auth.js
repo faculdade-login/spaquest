@@ -73,8 +73,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Usuário precisa ter pelo menos 3 caracteres.', true);
         return;
       }
-      if (password.length < 4) {
-        showToast('Senha precisa ter pelo menos 4 caracteres.', true);
+      if (password.length < 6) {
+        showToast('Senha precisa ter pelo menos 6 caracteres.', true);
         return;
       }
       if (password !== confirm) {
