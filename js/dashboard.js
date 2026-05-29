@@ -1,7 +1,8 @@
 /**
  * Dashboard — status geral — S.P.A. Quest
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await window.storageReady;
   let user = requireAuth();
   if (!user) return;
 
@@ -14,8 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  document.getElementById('btn-logout')?.addEventListener('click', () => {
-    clearSession();
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await clearSession();
     window.location.href = 'index.html';
   });
 

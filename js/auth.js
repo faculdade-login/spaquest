@@ -1,7 +1,9 @@
 /**
  * Login e registro — S.P.A. Quest
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await window.storageReady;
+
   const loginForm = document.getElementById('login-form');
   const registerForm = document.getElementById('register-form');
   const tabLogin = document.getElementById('tab-login');
@@ -35,16 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
     showTab('register');
   });
 
-  loginForm?.addEventListener('submit', (e) => {
+  loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const user = findUserByCredentials(username, password);
+    const user = await findUserByCredentials(username, password);
     if (!user) {
       showToast('Usuário ou senha incorretos.', true);
       return;
     }
-    setSession(user.id);
     if (user.character?.name) {
       window.location.href = 'dashboard.html';
     } else {
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  registerForm?.addEventListener('submit', (e) => {
+  registerForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
@@ -71,12 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const result = createUser({ username, password });
+    const result = await createUser({ username, password });
     if (result.error) {
       showToast(result.error, true);
       return;
     }
-    setSession(result.user.id);
     showToast('Conta criada! Crie seu personagem.');
     setTimeout(() => {
       window.location.href = 'profile.html';

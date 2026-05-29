@@ -1,12 +1,13 @@
 /**
  * Visibilidade geral — ranking por atividades concluídas
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await window.storageReady;
   const user = requireAuth();
   if (!user) return;
 
-  document.getElementById('btn-logout')?.addEventListener('click', () => {
-    clearSession();
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await clearSession();
     window.location.href = 'index.html';
   });
 

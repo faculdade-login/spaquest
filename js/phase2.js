@@ -610,13 +610,14 @@ function renderEnergyBars(user) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!document.getElementById('guilda-page')) return;
+  await window.storageReady;
   const user = requireAuth();
   if (!user) return;
 
-  document.getElementById('btn-logout')?.addEventListener('click', () => {
-    clearSession();
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await clearSession();
     window.location.href = 'index.html';
   });
 

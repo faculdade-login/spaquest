@@ -3,16 +3,17 @@
  */
 let selectedClassId = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!document.getElementById('character-form')) return;
 
+  await window.storageReady;
   let user = requireAuth();
   if (!user) return;
 
   user = migrateAndSyncUser(user);
 
-  document.getElementById('btn-logout')?.addEventListener('click', () => {
-    clearSession();
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await clearSession();
     window.location.href = 'index.html';
   });
 

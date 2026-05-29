@@ -1,85 +1,210 @@
 /**
- * Persistência local — S.P.A. Quest
+ * Persistência Supabase — S.P.A. Quest
  */
-const STORAGE_KEYS = {
-  USERS: 'spa_quest_users',
-  SESSION: 'spa_quest_session',
-  GLOBAL: 'spa_quest_global',
+const FIELD_TO_DB = {
+  taskCompletionsByDay: 'task_completions_by_day',
+  healthDaily: 'health_daily',
+  courseStudyDaily: 'course_study_daily',
 };
 
-function getUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-  } catch {
-    return [];
-  }
+let _currentUser = null;
+let _usersCache = [];
+let _globalState = null;
+let _sessionUserId = null;
+
+function usernameToEmail(username) {
+  const safe = String(username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+  return `${safe}@spaquest.local`;
 }
 
-function saveUsers(users) {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-}
-
-function getSession() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION) || 'null');
-  } catch {
-    return null;
-  }
-}
-
-function setSession(userId) {
-  localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ userId }));
-}
-
-function clearSession() {
-  localStorage.removeItem(STORAGE_KEYS.SESSION);
-}
-
-function getCurrentUser() {
-  const session = getSession();
-  if (!session?.userId) return null;
-  return getUsers().find((u) => u.id === session.userId) || null;
-}
-
-function updateUser(userId, patch) {
-  const users = getUsers();
-  const idx = users.findIndex((u) => u.id === userId);
-  if (idx === -1) return null;
-  users[idx] = { ...users[idx], ...patch, updatedAt: Date.now() };
-  saveUsers(users);
-  return users[idx];
-}
-
-function createUser({ username, password }) {
-  const users = getUsers();
-  if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-    return { error: 'Usuário já existe.' };
-  }
-  const user = {
-    id: crypto.randomUUID(),
-    username,
-    password,
-    createdAt: Date.now(),
-    character: null,
-    courses: [],
-    tasks: [],
-    xp: 0,
-    level: 1,
-    coins: 0,
-    streak: {
+function profileRowToUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    username: row.username,
+    character: row.character,
+    courses: row.courses || [],
+    tasks: row.tasks || [],
+    xp: row.xp ?? 0,
+    level: row.level ?? 1,
+    coins: row.coins ?? 0,
+    streak: row.streak || {
       weekdaysCompleted: [],
       currentStreak: 0,
       bestStreak: 0,
       lastWeekdayKey: null,
     },
-    taskCompletionsByDay: {},
-    phase2: defaultUserPhase2(),
-    healthDaily: { dayKey: todayKeyStorage(), doneIds: [] },
-    courseStudyDaily: { dayKey: todayKeyStorage(), studied: {} },
+    taskCompletionsByDay: row.task_completions_by_day || {},
+    phase2: row.phase2 || defaultUserPhase2(),
+    healthDaily: row.health_daily || { dayKey: todayKeyStorage(), doneIds: [] },
+    courseStudyDaily: row.course_study_daily || { dayKey: todayKeyStorage(), studied: {} },
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
   };
-  users.push(user);
-  saveUsers(users);
-  return { user };
+}
+
+function userPatchToDb(patch) {
+  const db = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (['id', 'password', 'createdAt', 'updatedAt'].includes(key)) continue;
+    db[FIELD_TO_DB[key] || key] = value;
+  }
+  return db;
+}
+
+function getSupabase() {
+  const client = window.spaSupabase;
+  if (!client) {
+    throw new Error('Supabase não configurado. Verifique js/config.js');
+  }
+  return client;
+}
+
+async function initStorage() {
+  const sb = window.spaSupabase;
+  if (!sb) return;
+
+  const { data: sessionData } = await sb.auth.getSession();
+  _sessionUserId = sessionData.session?.user?.id || null;
+
+  await Promise.all([refreshUsersCache(), loadGlobalState()]);
+
+  if (_sessionUserId) {
+    await reloadCurrentUser();
+  }
+}
+
+async function refreshUsersCache() {
+  const sb = getSupabase();
+  const { data, error } = await sb.from('profiles').select('*');
+  if (error) {
+    console.error('[storage] refreshUsersCache', error);
+    return;
+  }
+  _usersCache = (data || []).map(profileRowToUser);
+}
+
+async function reloadCurrentUser() {
+  if (!_sessionUserId) {
+    _currentUser = null;
+    return null;
+  }
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', _sessionUserId)
+    .maybeSingle();
+  if (error) {
+    console.error('[storage] reloadCurrentUser', error);
+    return null;
+  }
+  _currentUser = profileRowToUser(data);
+  if (_currentUser) {
+    const idx = _usersCache.findIndex((u) => u.id === _currentUser.id);
+    if (idx >= 0) _usersCache[idx] = _currentUser;
+    else _usersCache.push(_currentUser);
+  }
+  return _currentUser;
+}
+
+async function loadGlobalState() {
+  const sb = getSupabase();
+  const { data, error } = await sb.from('global_state').select('data').eq('id', 1).maybeSingle();
+  if (error || !data?.data) {
+    _globalState = defaultGlobalState();
+    return _globalState;
+  }
+  _globalState = data.data;
+  if (_globalState.boss?.name === 'Rei da Procrastinação') {
+    _globalState.boss.name = 'Boss Otanos';
+    await persistGlobalState();
+  }
+  ensureGlobalVault(_globalState);
+  return _globalState;
+}
+
+async function persistGlobalState() {
+  const sb = getSupabase();
+  const { error } = await sb.from('global_state').update({ data: _globalState }).eq('id', 1);
+  if (error) console.error('[storage] persistGlobalState', error);
+}
+
+function getUsers() {
+  return _usersCache;
+}
+
+function getSession() {
+  return _sessionUserId ? { userId: _sessionUserId } : null;
+}
+
+function setSession(userId) {
+  _sessionUserId = userId;
+}
+
+async function clearSession() {
+  const sb = window.spaSupabase;
+  if (sb) await sb.auth.signOut();
+  _sessionUserId = null;
+  _currentUser = null;
+}
+
+function getCurrentUser() {
+  return _currentUser;
+}
+
+function updateUser(userId, patch) {
+  const idx = _usersCache.findIndex((u) => u.id === userId);
+  const base = idx >= 0 ? _usersCache[idx] : _currentUser;
+  if (!base || base.id !== userId) return null;
+
+  const updated = { ...base, ...patch, updatedAt: Date.now() };
+  if (idx >= 0) _usersCache[idx] = updated;
+  else _usersCache.push(updated);
+  if (_currentUser?.id === userId) _currentUser = updated;
+
+  persistUserPatch(userId, patch);
+  return updated;
+}
+
+async function persistUserPatch(userId, patch) {
+  const sb = getSupabase();
+  const dbPatch = userPatchToDb(patch);
+  if (!Object.keys(dbPatch).length) return;
+  const { error } = await sb.from('profiles').update(dbPatch).eq('id', userId);
+  if (error) console.error('[storage] persistUserPatch', error);
+}
+
+async function createUser({ username, password }) {
+  const sb = getSupabase();
+  const normalized = username.trim();
+
+  const { data: existing } = await sb
+    .from('profiles')
+    .select('id')
+    .ilike('username', normalized)
+    .maybeSingle();
+  if (existing) return { error: 'Usuário já existe.' };
+
+  const email = usernameToEmail(normalized);
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { data: { username: normalized } },
+  });
+
+  if (error) return { error: error.message };
+  if (!data.user) return { error: 'Não foi possível criar a conta.' };
+
+  _sessionUserId = data.user.id;
+  await reloadCurrentUser();
+
+  if (_currentUser && _currentUser.username !== normalized) {
+    await sb.from('profiles').update({ username: normalized }).eq('id', data.user.id);
+    _currentUser = { ..._currentUser, username: normalized };
+  }
+
+  return { user: _currentUser };
 }
 
 function todayKeyStorage() {
@@ -102,28 +227,13 @@ function defaultUserPhase2() {
 }
 
 function ensureUserPhase2(user) {
-  if (!user.phase2) {
-    return defaultUserPhase2();
-  }
+  if (!user.phase2) return defaultUserPhase2();
   return user.phase2;
 }
 
 function getGlobalState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.GLOBAL);
-    if (raw) {
-      const state = JSON.parse(raw);
-      if (state.boss?.name === 'Rei da Procrastinação') {
-        state.boss.name = 'Boss Otanos';
-        saveGlobalState(state);
-      }
-      ensureGlobalVault(state);
-      return state;
-    }
-  } catch {
-    /* ignore */
-  }
-  return defaultGlobalState();
+  if (!_globalState) _globalState = defaultGlobalState();
+  return _globalState;
 }
 
 function defaultGlobalState() {
@@ -155,12 +265,19 @@ function ensureGlobalVault(global) {
 }
 
 function saveGlobalState(state) {
-  localStorage.setItem(STORAGE_KEYS.GLOBAL, JSON.stringify(state));
+  _globalState = state;
+  persistGlobalState();
 }
 
-function findUserByCredentials(username, password) {
-  return getUsers().find(
-    (u) =>
-      u.username.toLowerCase() === username.toLowerCase() && u.password === password
-  );
+async function findUserByCredentials(username, password) {
+  const sb = getSupabase();
+  const email = usernameToEmail(username.trim());
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error || !data.user) return null;
+
+  _sessionUserId = data.user.id;
+  await reloadCurrentUser();
+  return _currentUser;
 }
+
+window.storageReady = initStorage();
