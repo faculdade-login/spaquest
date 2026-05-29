@@ -14,7 +14,61 @@ let _sessionUserId = null;
 
 function usernameToEmail(username) {
   const safe = String(username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+  return `${safe}@spaquest.app`;
+}
+
+function usernameToLegacyEmail(username) {
+  const safe = String(username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
   return `${safe}@spaquest.local`;
+}
+
+function authRedirectUrl() {
+  const origin = window.location.origin;
+  const path = window.location.pathname.includes('/html/')
+    ? `${origin}/html/index.html`
+    : `${origin}/html/index.html`;
+  return path;
+}
+
+function mapAuthError(error) {
+  const msg = String(error?.message || error || '').toLowerCase();
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return 'Conta não confirmada. No Supabase, desative Confirm email ou rode supabase/06-auto-confirm-email.sql';
+  }
+  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+    return 'Usuário ou senha incorretos.';
+  }
+  if (msg.includes('user already registered') || msg.includes('already been registered')) {
+    return 'Usuário já existe.';
+  }
+  if (msg.includes('invalid email') || msg.includes('unable to validate email')) {
+    return 'Usuário inválido. Use só letras, números e _.';
+  }
+  if (msg.includes('password')) {
+    return 'Senha inválida. Use pelo menos 4 caracteres.';
+  }
+  return error?.message || 'Erro de autenticação.';
+}
+
+async function signInWithUsername(username, password) {
+  const sb = getSupabase();
+  const emails = [usernameToEmail(username), usernameToLegacyEmail(username)];
+  let lastError = null;
+
+  for (const email of emails) {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (!error && data.user) {
+      _sessionUserId = data.user.id;
+      await reloadCurrentUser();
+      return { user: _currentUser };
+    }
+    lastError = error;
+    if (error && !String(error.message).toLowerCase().includes('invalid login credentials')) {
+      break;
+    }
+  }
+
+  return { error: mapAuthError(lastError) };
 }
 
 function profileRowToUser(row) {
@@ -190,13 +244,22 @@ async function createUser({ username, password }) {
   const { data, error } = await sb.auth.signUp({
     email,
     password,
-    options: { data: { username: normalized } },
+    options: {
+      data: { username: normalized },
+      emailRedirectTo: authRedirectUrl(),
+    },
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: mapAuthError(error) };
   if (!data.user) return { error: 'Não foi possível criar a conta.' };
 
-  _sessionUserId = data.user.id;
+  if (data.session?.user) {
+    _sessionUserId = data.session.user.id;
+  } else {
+    const signIn = await signInWithUsername(normalized, password);
+    if (signIn.error) return { error: signIn.error };
+  }
+
   await reloadCurrentUser();
 
   if (_currentUser && _currentUser.username !== normalized) {
@@ -270,14 +333,9 @@ function saveGlobalState(state) {
 }
 
 async function findUserByCredentials(username, password) {
-  const sb = getSupabase();
-  const email = usernameToEmail(username.trim());
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error || !data.user) return null;
-
-  _sessionUserId = data.user.id;
-  await reloadCurrentUser();
-  return _currentUser;
+  const result = await signInWithUsername(username, password);
+  if (result.error) return { error: result.error };
+  return { user: result.user };
 }
 
 window.storageReady = initStorage();

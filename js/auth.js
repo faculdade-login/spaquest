@@ -41,11 +41,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const user = await findUserByCredentials(username, password);
-    if (!user) {
-      showToast('Usuário ou senha incorretos.', true);
+    const result = await findUserByCredentials(username, password);
+    if (result.error || !result.user) {
+      showToast(result.error || 'Usuário ou senha incorretos.', true);
       return;
     }
+    const user = result.user;
     if (user.character?.name) {
       window.location.href = 'dashboard.html';
     } else {
