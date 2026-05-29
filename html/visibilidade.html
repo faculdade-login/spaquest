@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.P.A. Quest — Visibilidade geral</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="../js/header-init.js"></script>
+</head>
+<body class="page-app" id="visibilidade-page">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <div class="logo">S.P.A. <span>Quest</span></div>
+      <nav class="nav-desktop">
+        <a href="dashboard.html">Status</a>
+        <a href="visibilidade.html" class="active" title="Visibilidade geral">Visibilidade</a>
+        <a href="guilda.html">Guilda</a>
+        <a href="profile.html" id="header-user" class="header-user" data-placeholder="···" title="Meu perfil"></a>
+        <button type="button" id="btn-logout" class="btn-ghost btn-logout-header">Sair</button>
+      </nav>
+    </div>
+  </header>
+  <script src="../js/header-fill.js"></script>
+
+  <main class="container page-main">
+    <section class="card visibility-hero">
+      <h2>👁️ Visibilidade geral</h2>
+      <p class="muted">
+        Ranking de todos os personagens por atividades concluídas — quem fez <strong>mais</strong> aparece no topo e quem fez <strong>menos</strong> no final.
+      </p>
+    </section>
+
+    <div id="visibility-leaderboard" class="visibility-list" aria-live="polite"></div>
+  </main>
+
+  <nav class="bottom-nav bottom-nav-4" aria-label="Navegação principal">
+    <a href="dashboard.html"><span class="nav-icon">🏠</span>Status</a>
+    <a href="visibilidade.html" class="active"><span class="nav-icon">👁️</span>Visão</a>
+    <a href="profile.html"><span class="nav-icon">👤</span>Perfil</a>
+    <a href="guilda.html"><span class="nav-icon">🏰</span>Guilda</a>
+  </nav>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/xp.js"></script>
+  <script src="../js/ranking.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/visibilidade.js"></script>
+</body>
+</html>

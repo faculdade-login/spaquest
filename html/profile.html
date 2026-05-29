@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.P.A. Quest — Perfil</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="../js/header-init.js"></script>
+</head>
+<body class="page-app">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <div class="logo">S.P.A. <span>Quest</span></div>
+      <nav class="nav-desktop">
+        <a href="dashboard.html">Status</a>
+        <a href="visibilidade.html" title="Visibilidade geral">Visibilidade</a>
+        <a href="guilda.html">Guilda</a>
+        <a href="profile.html" id="header-user" class="header-user active" data-placeholder="···" title="Meu perfil"></a>
+        <button type="button" id="btn-logout" class="btn-ghost btn-logout-header">Sair</button>
+      </nav>
+    </div>
+  </header>
+  <script src="../js/header-fill.js"></script>
+
+  <main class="container page-main">
+    <section class="card">
+      <div class="section-hero">
+        <h2>Escolha sua classe</h2>
+        <p class="muted">Cada classe tem um bônus diferente</p>
+      </div>
+      <form id="character-form">
+        <div id="class-grid" class="class-grid"></div>
+        <div class="form-group">
+          <label for="char-name">Nome do personagem</label>
+          <div class="input-wrap">
+            <span class="input-icon" aria-hidden="true">⚔️</span>
+            <input id="char-name" type="text" placeholder="Ex: Luna Estudiosa" required maxlength="40" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="max-width:320px">Salvar personagem</button>
+      </form>
+    </section>
+
+    <div class="card-grid cols-2">
+      <section class="card card-courses-wide">
+        <h2>📚 Cursos e atividades</h2>
+        <p class="muted">Marque ✓ cada atividade dentro do curso</p>
+        <form id="course-form" class="inline-form">
+          <input id="course-name" type="text" placeholder="Nome do curso" required />
+          <button type="submit" class="btn btn-success btn-sm">+ Curso</button>
+        </form>
+        <div id="course-list" class="course-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>➕ Nova atividade</h2>
+        <p class="muted">A atividade entra no curso escolhido</p>
+        <form id="task-form">
+          <div class="form-group">
+            <label for="task-title">O que você vai fazer?</label>
+            <div class="input-wrap">
+              <span class="input-icon" aria-hidden="true">📝</span>
+              <input id="task-title" type="text" placeholder="Ex: Estudar capítulo 3" required />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group" id="task-course-group">
+              <label for="task-course">Curso</label>
+              <select id="task-course" required><option value="">Selecione o curso</option></select>
+              <p id="task-course-hint" class="muted" style="font-size:0.75rem;margin-top:0.35rem"></p>
+            </div>
+            <div class="form-group">
+              <label for="task-type">Tipo</label>
+              <select id="task-type">
+                <option value="estudo">📖 Estudo</option>
+                <option value="geral">⭐ Geral</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="task-difficulty">Dificuldade</label>
+            <select id="task-difficulty">
+              <option value="facil">Fácil · 25 XP</option>
+              <option value="medio" selected>Médio · 50 XP</option>
+              <option value="dificil">Difícil · 100 XP</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-success">Adicionar ao curso</button>
+        </form>
+      </section>
+    </div>
+
+  </main>
+
+  <nav class="bottom-nav bottom-nav-4" aria-label="Navegação principal">
+    <a href="dashboard.html"><span class="nav-icon">🏠</span>Status</a>
+    <a href="visibilidade.html"><span class="nav-icon">👁️</span>Visão</a>
+    <a href="profile.html" class="active"><span class="nav-icon">👤</span>Perfil</a>
+    <a href="guilda.html"><span class="nav-icon">🏰</span>Guilda</a>
+  </nav>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/xp.js"></script>
+  <script src="../js/streak.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/health.js"></script>
+  <script src="../js/phase2.js"></script>
+  <script src="../js/profile.js"></script>
+</body>
+</html>

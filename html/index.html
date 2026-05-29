@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.P.A. Quest — Entrar</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="page-auth">
+  <div class="auth-mascot" aria-hidden="true">🦉</div>
+  <div class="auth-box">
+    <h1>S.P.A. Quest</h1>
+    <p class="subtitle">Estude. Evolua. Conquiste.</p>
+
+    <nav class="tab-switch">
+      <a href="#" id="tab-login" class="active">Entrar</a>
+      <a href="#" id="tab-register">Cadastrar</a>
+    </nav>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="login-username">Usuário</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">👤</span>
+          <input id="login-username" type="text" required autocomplete="username" placeholder="Seu nome de usuário" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="login-password">Senha</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">🔒</span>
+          <input id="login-password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Continuar</button>
+    </form>
+
+    <form id="register-form" class="hidden">
+      <div class="form-group">
+        <label for="reg-username">Usuário</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">✨</span>
+          <input id="reg-username" type="text" required minlength="3" placeholder="Mínimo 3 caracteres" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="reg-password">Senha</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">🔒</span>
+          <input id="reg-password" type="password" required minlength="4" placeholder="Mínimo 4 caracteres" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="reg-confirm">Confirmar senha</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">✓</span>
+          <input id="reg-confirm" type="password" required placeholder="Repita a senha" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Criar conta grátis</button>
+    </form>
+
+    <p class="muted" style="text-align:center;margin-top:1.25rem;font-size:0.8rem">
+      Seus dados ficam salvos neste navegador
+    </p>
+  </div>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.P.A. Quest — Guilda</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="../js/header-init.js"></script>
+</head>
+<body class="page-app" id="guilda-page">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <div class="logo">S.P.A. <span>Quest</span></div>
+      <nav class="nav-desktop">
+        <a href="dashboard.html">Status</a>
+        <a href="visibilidade.html" title="Visibilidade geral">Visibilidade</a>
+        <a href="guilda.html" class="active">Guilda</a>
+        <a href="profile.html" id="header-user" class="header-user" data-placeholder="···" title="Meu perfil"></a>
+        <button type="button" id="btn-logout" class="btn-ghost btn-logout-header">Sair</button>
+      </nav>
+    </div>
+  </header>
+  <script src="../js/header-fill.js"></script>
+
+  <main class="container page-main">
+    <section class="card phase2-hero">
+      <h2>🏰 Guilda</h2>
+      <p class="muted">Cofre · Loot · Boss · Boosters — complete tarefas no perfil para alimentar tudo.</p>
+    </section>
+
+    <div class="phase2-grid">
+      <section class="card phase2-card phase2-vault">
+        <div class="phase2-card-head">
+          <span class="phase2-icon">🏦</span>
+          <h2>Cofre da guilda</h2>
+        </div>
+        <div class="vault-pills">
+          <div class="vault-pill vault-pill-hero">
+            <span class="vault-pill-value coins" id="vault-coins">0</span>
+            <span class="vault-pill-label">🪙 moedas guardadas no cofre</span>
+          </div>
+
+          <div class="vault-pills-row">
+            <div class="vault-pill vault-pill-stat">
+              <span class="vault-pill-value" id="vault-level">1</span>
+              <span class="vault-pill-label">Nível do cofre</span>
+            </div>
+            <div class="vault-pill vault-pill-stat vault-pill-you">
+              <span class="vault-pill-value coins" id="vault-yours">0</span>
+              <span class="vault-pill-label">🪙 sua contribuição</span>
+            </div>
+          </div>
+
+          <div class="vault-pills-row vault-pills-perks">
+            <span class="vault-perk-pill">💰 Dinheiro real</span>
+            <span class="vault-perk-pill">📚 Cursos bônus</span>
+            <span class="vault-perk-pill">🎁 Vantagens</span>
+          </div>
+
+          <p class="vault-pill vault-pill-hint">
+            Quando o boss cai ou o cofre sobe de nível, as 🪙 moedas e itens são divididos entre quem mais ajudou — tudo cai no inventário de cada um.
+          </p>
+        </div>
+
+        <h3 class="phase2-sub">🏆 Quem mais contribuiu</h3>
+        <p id="vault-contrib-total" class="vault-contrib-total-pill">🪙 —</p>
+        <div id="vault-contributors-list" class="vault-contributors-list"></div>
+        <h3 class="phase2-sub">Últimas distribuições do cofre</h3>
+        <div id="vault-distribution-history" class="vault-distribution-history"></div>
+        <h3 class="phase2-sub">Suas recompensas do cofre</h3>
+        <div id="vault-my-rewards" class="vault-my-rewards"></div>
+      </section>
+
+      <section class="card phase2-card phase2-loot">
+        <div class="phase2-card-head">
+          <span class="phase2-icon">🎁</span>
+          <h2>Sistema de loot</h2>
+        </div>
+        <p class="muted">~45% de chance após cada tarefa.</p>
+        <div class="loot-chips">
+          <span class="tag">🪙 Moedas</span>
+          <span class="tag">📦 Caixa</span>
+          <span class="tag">💎 Raro</span>
+          <span class="tag">⚡ Booster</span>
+          <span class="tag">🔥 Streak</span>
+          <span class="tag">🎨 Skin</span>
+          <span class="tag">🏅 Título</span>
+        </div>
+        <h3 class="phase2-sub">Últimas recompensas</h3>
+        <div id="loot-log" class="loot-log"></div>
+      </section>
+
+      <section class="card phase2-card phase2-boss">
+        <div class="boss-grid">
+          <div class="boss-image-cell">
+            <img src="../imgs/othanos.png" alt="Boss Otanos" class="boss-image" />
+          </div>
+          <div class="boss-title-cell">
+            <h2 id="boss-name">Boss Otanos</h2>
+            <p class="muted">Cada tarefa causa dano. Quando o boss cai, todos ganham loot.</p>
+          </div>
+          <div class="boss-details-cell">
+            <div class="boss-hp-wrap">
+              <div class="boss-hp-bar">
+                <div id="boss-hp-fill" class="boss-hp-fill"></div>
+              </div>
+              <p id="boss-meta" class="boss-meta">50.000 / 50.000 HP</p>
+            </div>
+            <div class="phase2-damage-legend muted">
+              <span>📖 Estudo · até 500</span>
+              <span>📦 Módulo difícil · 500</span>
+              <span>💧 Saúde · 100</span>
+            </div>
+            <p class="phase2-defeats">Vitórias da guilda: <strong id="boss-defeats">0</strong></p>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="card phase2-card phase2-boosters phase2-wide">
+        <div class="phase2-card-head">
+          <span class="phase2-icon">🧪</span>
+          <h2>Boosters</h2>
+        </div>
+        <p class="muted">Ativo agora: <span id="booster-active">—</span></p>
+        <div id="booster-shop" class="booster-shop"></div>
+        <h3 class="phase2-sub">Inventário</h3>
+        <div id="booster-inventory" class="booster-inventory"></div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="bottom-nav bottom-nav-4" aria-label="Navegação principal">
+    <a href="dashboard.html"><span class="nav-icon">🏠</span>Status</a>
+    <a href="visibilidade.html"><span class="nav-icon">👁️</span>Visão</a>
+    <a href="profile.html"><span class="nav-icon">👤</span>Perfil</a>
+    <a href="guilda.html" class="active"><span class="nav-icon">🏰</span>Guilda</a>
+  </nav>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/xp.js"></script>
+  <script src="../js/streak.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/phase2.js"></script>
+</body>
+</html>

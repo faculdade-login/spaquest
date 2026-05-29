@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.P.A. Quest — Status</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="../js/header-init.js"></script>
+</head>
+<body class="page-app" id="dashboard-page">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <div class="logo">S.P.A. <span>Quest</span></div>
+      <nav class="nav-desktop">
+        <a href="dashboard.html" class="active">Status</a>
+        <a href="visibilidade.html" title="Visibilidade geral">Visibilidade</a>
+        <a href="guilda.html">Guilda</a>
+        <a href="profile.html" id="header-user" class="header-user" data-placeholder="···" title="Meu perfil"></a>
+        <button type="button" id="btn-logout" class="btn-ghost btn-logout-header">Sair</button>
+      </nav>
+    </div>
+  </header>
+  <script src="../js/header-fill.js"></script>
+
+  <main class="container page-main">
+    <div class="dashboard-hero">
+      <div class="card-grid cols-3">
+        <section class="card card-hero-character" id="character-card">
+          <p class="muted">Carregando...</p>
+        </section>
+        <section class="card card-highlight">
+          <h2>Progressão</h2>
+          <p><span id="rank-badge" class="rank-badge rank-ferro">Ferro</span></p>
+          <div class="xp-bar-wrap">
+            <div class="meta"><span>Nível <strong id="stat-level">1</strong></span><span id="xp-meta">0 / 100 XP</span></div>
+            <div class="xp-bar"><div id="xp-fill" class="xp-bar-fill" style="width:0%"></div></div>
+          </div>
+          <div class="stat-row stat-row-compact">
+            <div class="stat-pill"><div class="value" id="stat-xp">0</div><div class="label">XP total</div></div>
+            <div class="stat-pill"><div class="value coins" id="stat-coins">0</div><div class="label">Moedas</div></div>
+          </div>
+        </section>
+        <section class="card">
+          <h2>🔥 Streak</h2>
+          <p class="muted streak-sub">Segunda a sexta</p>
+          <div class="streak-display">
+            <span id="streak-flame" class="streak-flame">🔥</span>
+            <div>
+              <div class="value streak-value" id="stat-streak">0</div>
+              <div id="streak-tier" class="streak-tier">Sem combo</div>
+              <p class="muted streak-hint">3 · 7 · 30 · 100 dias</p>
+            </div>
+          </div>
+          <div id="weekdays-dots" class="weekdays"></div>
+        </section>
+      </div>
+
+      <div class="stat-row stat-row-hero">
+        <div class="stat-pill"><div class="value" id="stat-tasks-pending">0</div><div class="label">Pendentes</div></div>
+        <div class="stat-pill"><div class="value" id="stat-tasks-done">0</div><div class="label">Feitas</div></div>
+        <div class="stat-pill"><div class="value" id="stat-courses">0</div><div class="label">Cursos</div></div>
+      </div>
+    </div>
+
+    <section class="card card-health-mandatory">
+      <div class="course-block-head">
+        <div>
+          <h2>💧 Saúde</h2>
+          <p class="muted">Hábitos diários com XP</p>
+        </div>
+        <span id="health-progress" class="health-progress-badge">0/4</span>
+      </div>
+      <div id="health-missions" class="health-missions"></div>
+    </section>
+
+    <section class="card card-energy">
+      <div class="course-block-head">
+        <div>
+          <h2>⚡ Energia</h2>
+          <p class="muted">Sem pausa = menos XP. Missões de saúde ajudam a recuperar.</p>
+        </div>
+      </div>
+      <div class="energy-bars">
+        <div class="energy-row">
+          <span>🔮 Mana</span>
+          <div class="energy-track"><div id="bar-mana" class="energy-fill mana"></div></div>
+          <span id="val-mana">100%</span>
+        </div>
+        <div class="energy-row">
+          <span>💚 Energia</span>
+          <div class="energy-track"><div id="bar-energy" class="energy-fill vigor"></div></div>
+          <span id="val-energy">100%</span>
+        </div>
+        <div class="energy-row">
+          <span>🏃 Stamina</span>
+          <div class="energy-track"><div id="bar-stamina" class="energy-fill stamina"></div></div>
+          <span id="val-stamina">100%</span>
+        </div>
+      </div>
+      <p class="muted energy-warning">Abaixo de 40%: -25% XP · Abaixo de 20%: -50% XP</p>
+    </section>
+
+    <section class="card card-courses-study">
+      <div class="course-block-head">
+        <div>
+          <h2>📚 Estudo dos cursos</h2>
+          <p class="muted">Marque as atividades e se estudou o curso hoje</p>
+        </div>
+        <span id="courses-study-summary" class="health-progress-badge">0/0</span>
+      </div>
+      <div id="courses-study-list" class="courses-study-list"></div>
+      <p class="muted courses-study-footer">
+        Use os <strong>checkboxes</strong> ao concluir cada tarefa. <strong>Sim/Não</strong> indica se estudou o conteúdo do curso hoje.
+      </p>
+      <a href="profile.html" class="link-cta">Gerenciar cursos e tarefas →</a>
+    </section>
+
+    <div class="card-grid cols-2">
+      <section class="card">
+        <h2>🏆 Conquistas</h2>
+        <div id="recent-tasks"></div>
+        <a href="profile.html" class="link-cta">Ir para tarefas →</a>
+      </section>
+      <section class="card card-ranking">
+        <h2>📊 Ranking</h2>
+        <p class="muted">Quem mais XP ganhou</p>
+        <div class="ranking-table-wrap">
+          <table id="ranking-table" class="ranking-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Aventureiro</th>
+                <th>Rank</th>
+                <th>Nv</th>
+                <th>XP</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="bottom-nav bottom-nav-4" aria-label="Navegação principal">
+    <a href="dashboard.html" class="active"><span class="nav-icon">🏠</span>Status</a>
+    <a href="visibilidade.html"><span class="nav-icon">👁️</span>Visão</a>
+    <a href="profile.html"><span class="nav-icon">👤</span>Perfil</a>
+    <a href="guilda.html"><span class="nav-icon">🏰</span>Guilda</a>
+  </nav>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/xp.js"></script>
+  <script src="../js/streak.js"></script>
+  <script src="../js/ranking.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/health.js"></script>
+  <script src="../js/phase2.js"></script>
+  <script src="../js/profile.js"></script>
+  <script src="../js/dashboard.js"></script>
+</body>
+</html>
