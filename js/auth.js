@@ -39,48 +39,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = loginForm.querySelector('button[type="submit"]');
+    btn.disabled = true;
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const result = await findUserByCredentials(username, password);
-    if (result.error || !result.user) {
-      showToast(result.error || 'Usuário ou senha incorretos.', true);
-      return;
-    }
-    const user = result.user;
-    if (user.character?.name) {
-      window.location.href = 'dashboard.html';
-    } else {
-      window.location.href = 'profile.html';
+    try {
+      const result = await findUserByCredentials(username, password);
+      if (result.error || !result.user) {
+        showToast(result.error || 'Usuário ou senha incorretos.', true);
+        return;
+      }
+      const user = result.user;
+      if (user.character?.name) {
+        window.location.href = 'dashboard.html';
+      } else {
+        window.location.href = 'profile.html';
+      }
+    } finally {
+      btn.disabled = false;
     }
   });
 
   registerForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = registerForm.querySelector('button[type="submit"]');
+    btn.disabled = true;
     const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
     const confirm = document.getElementById('reg-confirm').value;
 
-    if (username.length < 3) {
-      showToast('Usuário precisa ter pelo menos 3 caracteres.', true);
-      return;
-    }
-    if (password.length < 4) {
-      showToast('Senha precisa ter pelo menos 4 caracteres.', true);
-      return;
-    }
-    if (password !== confirm) {
-      showToast('As senhas não coincidem.', true);
-      return;
-    }
+    try {
+      if (username.length < 3) {
+        showToast('Usuário precisa ter pelo menos 3 caracteres.', true);
+        return;
+      }
+      if (password.length < 4) {
+        showToast('Senha precisa ter pelo menos 4 caracteres.', true);
+        return;
+      }
+      if (password !== confirm) {
+        showToast('As senhas não coincidem.', true);
+        return;
+      }
 
-    const result = await createUser({ username, password });
-    if (result.error) {
-      showToast(result.error, true);
-      return;
+      const result = await createUser({ username, password });
+      if (result.error) {
+        showToast(result.error, true);
+        return;
+      }
+      showToast('Conta criada! Crie seu personagem.');
+      setTimeout(() => {
+        window.location.href = 'profile.html';
+      }, 600);
+    } finally {
+      btn.disabled = false;
     }
-    showToast('Conta criada! Crie seu personagem.');
-    setTimeout(() => {
-      window.location.href = 'profile.html';
-    }, 600);
   });
 });

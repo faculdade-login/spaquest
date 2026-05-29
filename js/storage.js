@@ -32,6 +32,9 @@ function authRedirectUrl() {
 
 function mapAuthError(error) {
   const msg = String(error?.message || error || '').toLowerCase();
+  if (msg.includes('rate limit') || msg.includes('too many requests')) {
+    return 'Muitas tentativas. Aguarde 1 hora ou use Entrar se já tiver conta. No Supabase: Authentication → Rate Limits.';
+  }
   if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
     return 'Conta não confirmada. No Supabase, desative Confirm email ou rode supabase/06-auto-confirm-email.sql';
   }
@@ -238,19 +241,27 @@ async function createUser({ username, password }) {
     .select('id')
     .ilike('username', normalized)
     .maybeSingle();
-  if (existing) return { error: 'Usuário já existe.' };
+  if (existing) {
+    const signIn = await signInWithUsername(normalized, password);
+    if (signIn.user) return { user: signIn.user };
+    return { error: 'Usuário já existe. Use a senha correta em Entrar.' };
+  }
 
   const email = usernameToEmail(normalized);
   const { data, error } = await sb.auth.signUp({
     email,
     password,
-    options: {
-      data: { username: normalized },
-      emailRedirectTo: authRedirectUrl(),
-    },
+    options: { data: { username: normalized } },
   });
 
-  if (error) return { error: mapAuthError(error) };
+  if (error) {
+    const mapped = mapAuthError(error);
+    if (mapped.includes('já existe') || String(error.message).toLowerCase().includes('already')) {
+      const signIn = await signInWithUsername(normalized, password);
+      if (signIn.user) return { user: signIn.user };
+    }
+    return { error: mapped };
+  }
   if (!data.user) return { error: 'Não foi possível criar a conta.' };
 
   if (data.session?.user) {
