@@ -1,5 +1,5 @@
 /**
- * Persistência Supabase — S.P.A. Quest
+ * Persistência Supabase — S.P.A. Quest (otimizado: menos requests e menos payload)
  */
 const FIELD_TO_DB = {
   taskCompletionsByDay: 'task_completions_by_day',
@@ -7,10 +7,28 @@ const FIELD_TO_DB = {
   courseStudyDaily: 'course_study_daily',
 };
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_KEYS = {
+  leaderboard: 'spa_quest_cache_leaderboard',
+  visibility: 'spa_quest_cache_visibility',
+  global: 'spa_quest_cache_global',
+};
+
+const SELECT = {
+  leaderboard: 'id, username, xp, character, streak',
+  visibility: 'id, username, xp, character, courses',
+  vault: 'id, character, phase2, coins',
+  self: '*',
+};
+
 let _currentUser = null;
 let _usersCache = [];
 let _globalState = null;
 let _sessionUserId = null;
+let _pendingPatches = new Map();
+let _persistTimer = null;
+let _globalPersistTimer = null;
+let _globalDirty = false;
 
 function usernameToEmail(username) {
   const safe = String(username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
@@ -22,21 +40,13 @@ function usernameToLegacyEmail(username) {
   return `${safe}@spaquest.local`;
 }
 
-function authRedirectUrl() {
-  const origin = window.location.origin;
-  const path = window.location.pathname.includes('/html/')
-    ? `${origin}/html/index.html`
-    : `${origin}/html/index.html`;
-  return path;
-}
-
 function mapAuthError(error) {
   const msg = String(error?.message || error || '').toLowerCase();
   if (msg.includes('rate limit') || msg.includes('too many requests')) {
-    return 'Muitas tentativas. Aguarde 1 hora ou use Entrar se já tiver conta. No Supabase: Authentication → Rate Limits.';
+    return 'Muitas tentativas. Aguarde 1 hora ou use Entrar se já tiver conta.';
   }
   if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-    return 'Conta não confirmada. No Supabase, desative Confirm email ou rode supabase/06-auto-confirm-email.sql';
+    return 'Conta não confirmada. Desative Confirm email no Supabase ou rode supabase/06-auto-confirm-email.sql';
   }
   if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
     return 'Usuário ou senha incorretos.';
@@ -48,30 +58,48 @@ function mapAuthError(error) {
     return 'Usuário inválido. Use só letras, números e _.';
   }
   if (msg.includes('password')) {
-    return 'Senha inválida. Use pelo menos 4 caracteres.';
+    return 'Senha inválida. Use pelo menos 6 caracteres.';
   }
   return error?.message || 'Erro de autenticação.';
 }
 
-async function signInWithUsername(username, password) {
-  const sb = getSupabase();
-  const emails = [usernameToEmail(username), usernameToLegacyEmail(username)];
-  let lastError = null;
-
-  for (const email of emails) {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (!error && data.user) {
-      _sessionUserId = data.user.id;
-      await reloadCurrentUser();
-      return { user: _currentUser };
+function readSessionCache(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { at, data } = JSON.parse(raw);
+    if (Date.now() - at > CACHE_TTL_MS) {
+      sessionStorage.removeItem(key);
+      return null;
     }
-    lastError = error;
-    if (error && !String(error.message).toLowerCase().includes('invalid login credentials')) {
-      break;
-    }
+    return data;
+  } catch {
+    return null;
   }
+}
 
-  return { error: mapAuthError(lastError) };
+function writeSessionCache(key, data) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* quota exceeded — ignora cache */
+  }
+}
+
+function invalidateListCaches() {
+  Object.values(CACHE_KEYS).forEach((key) => {
+    if (key !== CACHE_KEYS.global) sessionStorage.removeItem(key);
+  });
+}
+
+function getPageLoadPlan() {
+  const pageId = document.body?.id || '';
+  if (document.getElementById('login-form')) return { authOnly: true };
+  if (pageId === 'dashboard-page') return { user: true, leaderboard: true };
+  if (pageId === 'visibilidade-page') return { user: true, visibility: true };
+  if (pageId === 'guilda-page') return { user: true, global: true, vault: true };
+  if (document.getElementById('character-form')) return { user: true };
+  return { user: true };
 }
 
 function profileRowToUser(row) {
@@ -100,6 +128,22 @@ function profileRowToUser(row) {
   };
 }
 
+function mergeUsersIntoCache(rows) {
+  (rows || []).forEach((row) => {
+    const user = profileRowToUser(row);
+    if (!user) return;
+    const idx = _usersCache.findIndex((u) => u.id === user.id);
+    if (idx >= 0) {
+      _usersCache[idx] = { ..._usersCache[idx], ...user };
+    } else {
+      _usersCache.push(user);
+    }
+    if (_currentUser?.id === user.id) {
+      _currentUser = { ..._currentUser, ...user };
+    }
+  });
+}
+
 function userPatchToDb(patch) {
   const db = {};
   for (const [key, value] of Object.entries(patch)) {
@@ -111,10 +155,29 @@ function userPatchToDb(patch) {
 
 function getSupabase() {
   const client = window.spaSupabase;
-  if (!client) {
-    throw new Error('Supabase não configurado. Verifique js/config.js');
-  }
+  if (!client) throw new Error('Supabase não configurado. Verifique js/config.js');
   return client;
+}
+
+async function signInWithUsername(username, password) {
+  const sb = getSupabase();
+  const emails = [usernameToEmail(username), usernameToLegacyEmail(username)];
+  let lastError = null;
+
+  for (const email of emails) {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (!error && data.user) {
+      _sessionUserId = data.user.id;
+      await reloadCurrentUser();
+      return { user: _currentUser };
+    }
+    lastError = error;
+    if (error && !String(error.message).toLowerCase().includes('invalid login credentials')) {
+      break;
+    }
+  }
+
+  return { error: mapAuthError(lastError) };
 }
 
 async function initStorage() {
@@ -124,21 +187,81 @@ async function initStorage() {
   const { data: sessionData } = await sb.auth.getSession();
   _sessionUserId = sessionData.session?.user?.id || null;
 
-  await Promise.all([refreshUsersCache(), loadGlobalState()]);
+  const plan = getPageLoadPlan();
+  if (plan.authOnly) return;
 
-  if (_sessionUserId) {
-    await reloadCurrentUser();
-  }
+  const tasks = [];
+  if (plan.user && _sessionUserId) tasks.push(reloadCurrentUser());
+  if (plan.leaderboard) tasks.push(loadLeaderboardUsers());
+  if (plan.visibility) tasks.push(loadVisibilityUsers());
+  if (plan.global) tasks.push(loadGlobalState());
+  if (plan.vault) tasks.push(loadVaultUsers());
+
+  await Promise.all(tasks);
 }
 
-async function refreshUsersCache() {
-  const sb = getSupabase();
-  const { data, error } = await sb.from('profiles').select('*');
-  if (error) {
-    console.error('[storage] refreshUsersCache', error);
+async function loadLeaderboardUsers() {
+  const cached = readSessionCache(CACHE_KEYS.leaderboard);
+  if (cached) {
+    mergeUsersIntoCache(cached);
     return;
   }
-  _usersCache = (data || []).map(profileRowToUser);
+
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('profiles')
+    .select(SELECT.leaderboard)
+    .not('character', 'is', null)
+    .order('xp', { ascending: false })
+    .limit(25);
+
+  if (error) {
+    console.error('[storage] loadLeaderboardUsers', error);
+    return;
+  }
+
+  writeSessionCache(CACHE_KEYS.leaderboard, data || []);
+  mergeUsersIntoCache(data || []);
+}
+
+async function loadVisibilityUsers() {
+  const cached = readSessionCache(CACHE_KEYS.visibility);
+  if (cached) {
+    mergeUsersIntoCache(cached);
+    return;
+  }
+
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('profiles')
+    .select(SELECT.visibility)
+    .not('character', 'is', null)
+    .order('xp', { ascending: false })
+    .limit(40);
+
+  if (error) {
+    console.error('[storage] loadVisibilityUsers', error);
+    return;
+  }
+
+  writeSessionCache(CACHE_KEYS.visibility, data || []);
+  mergeUsersIntoCache(data || []);
+}
+
+async function loadVaultUsers() {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('profiles')
+    .select(SELECT.vault)
+    .not('character', 'is', null)
+    .limit(60);
+
+  if (error) {
+    console.error('[storage] loadVaultUsers', error);
+    return;
+  }
+
+  mergeUsersIntoCache(data || []);
 }
 
 async function reloadCurrentUser() {
@@ -146,45 +269,81 @@ async function reloadCurrentUser() {
     _currentUser = null;
     return null;
   }
+
   const sb = getSupabase();
   const { data, error } = await sb
     .from('profiles')
-    .select('*')
+    .select(SELECT.self)
     .eq('id', _sessionUserId)
     .maybeSingle();
+
   if (error) {
     console.error('[storage] reloadCurrentUser', error);
     return null;
   }
+
   _currentUser = profileRowToUser(data);
-  if (_currentUser) {
-    const idx = _usersCache.findIndex((u) => u.id === _currentUser.id);
-    if (idx >= 0) _usersCache[idx] = _currentUser;
-    else _usersCache.push(_currentUser);
-  }
+  if (_currentUser) mergeUsersIntoCache([data]);
   return _currentUser;
 }
 
 async function loadGlobalState() {
+  const cached = readSessionCache(CACHE_KEYS.global);
+  if (cached) {
+    _globalState = cached;
+    ensureGlobalVault(_globalState);
+    return _globalState;
+  }
+
   const sb = getSupabase();
   const { data, error } = await sb.from('global_state').select('data').eq('id', 1).maybeSingle();
   if (error || !data?.data) {
     _globalState = defaultGlobalState();
     return _globalState;
   }
+
   _globalState = data.data;
   if (_globalState.boss?.name === 'Rei da Procrastinação') {
     _globalState.boss.name = 'Boss Otanos';
-    await persistGlobalState();
+    saveGlobalState(_globalState);
   }
   ensureGlobalVault(_globalState);
+  writeSessionCache(CACHE_KEYS.global, _globalState);
   return _globalState;
 }
 
-async function persistGlobalState() {
+async function flushPendingPatches() {
+  if (!_pendingPatches.size) return;
+  const sb = getSupabase();
+  const entries = [..._pendingPatches.entries()];
+  _pendingPatches.clear();
+
+  let invalidate = false;
+  for (const [userId, patch] of entries) {
+    const dbPatch = userPatchToDb(patch);
+    if (!Object.keys(dbPatch).length) continue;
+    const { error } = await sb.from('profiles').update(dbPatch).eq('id', userId);
+    if (error) console.error('[storage] persistUserPatch', error);
+    if (
+      patch.xp != null ||
+      patch.courses != null ||
+      patch.character != null ||
+      patch.phase2 != null ||
+      patch.coins != null
+    ) {
+      invalidate = true;
+    }
+  }
+  if (invalidate) invalidateListCaches();
+}
+
+async function persistGlobalStateNow() {
+  if (!_globalState) return;
   const sb = getSupabase();
   const { error } = await sb.from('global_state').update({ data: _globalState }).eq('id', 1);
   if (error) console.error('[storage] persistGlobalState', error);
+  else writeSessionCache(CACHE_KEYS.global, _globalState);
+  _globalDirty = false;
 }
 
 function getUsers() {
@@ -201,9 +360,19 @@ function setSession(userId) {
 
 async function clearSession() {
   const sb = window.spaSupabase;
+  if (_persistTimer) {
+    clearTimeout(_persistTimer);
+    await flushPendingPatches();
+  }
+  if (_globalPersistTimer) {
+    clearTimeout(_globalPersistTimer);
+    await persistGlobalStateNow();
+  }
   if (sb) await sb.auth.signOut();
   _sessionUserId = null;
   _currentUser = null;
+  _usersCache = [];
+  Object.values(CACHE_KEYS).forEach((key) => sessionStorage.removeItem(key));
 }
 
 function getCurrentUser() {
@@ -220,16 +389,17 @@ function updateUser(userId, patch) {
   else _usersCache.push(updated);
   if (_currentUser?.id === userId) _currentUser = updated;
 
-  persistUserPatch(userId, patch);
+  queueUserPatch(userId, patch);
   return updated;
 }
 
-async function persistUserPatch(userId, patch) {
-  const sb = getSupabase();
-  const dbPatch = userPatchToDb(patch);
-  if (!Object.keys(dbPatch).length) return;
-  const { error } = await sb.from('profiles').update(dbPatch).eq('id', userId);
-  if (error) console.error('[storage] persistUserPatch', error);
+function queueUserPatch(userId, patch) {
+  const prev = _pendingPatches.get(userId) || {};
+  _pendingPatches.set(userId, { ...prev, ...patch });
+  clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    flushPendingPatches();
+  }, 500);
 }
 
 async function createUser({ username, password }) {
@@ -241,6 +411,7 @@ async function createUser({ username, password }) {
     .select('id')
     .ilike('username', normalized)
     .maybeSingle();
+
   if (existing) {
     const signIn = await signInWithUsername(normalized, password);
     if (signIn.user) return { user: signIn.user };
@@ -278,6 +449,7 @@ async function createUser({ username, password }) {
     _currentUser = { ..._currentUser, username: normalized };
   }
 
+  invalidateListCaches();
   return { user: _currentUser };
 }
 
@@ -340,7 +512,12 @@ function ensureGlobalVault(global) {
 
 function saveGlobalState(state) {
   _globalState = state;
-  persistGlobalState();
+  _globalDirty = true;
+  writeSessionCache(CACHE_KEYS.global, _globalState);
+  clearTimeout(_globalPersistTimer);
+  _globalPersistTimer = setTimeout(() => {
+    persistGlobalStateNow();
+  }, 500);
 }
 
 async function findUserByCredentials(username, password) {
@@ -350,3 +527,8 @@ async function findUserByCredentials(username, password) {
 }
 
 window.storageReady = initStorage();
+
+window.addEventListener('pagehide', () => {
+  if (_pendingPatches.size) flushPendingPatches();
+  if (_globalDirty) persistGlobalStateNow();
+});
